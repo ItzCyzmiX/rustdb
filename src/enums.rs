@@ -19,6 +19,7 @@ pub enum ValueType {
     Float,
     String,
     Bool,
+    Vec,
 }
 
 #[derive(PartialEq, PartialOrd, Debug, Clone)]
@@ -27,6 +28,7 @@ pub enum Value {
     Float(f64),
     String(String),
     Bool(bool),
+    Vec(Vec<Value>),
 }
 
 impl From<&str> for Value {
@@ -56,28 +58,5 @@ impl From<f64> for Value {
 impl From<bool> for Value {
     fn from(n: bool) -> Self {
         Value::Bool(n)
-    }
-}
-
-#[derive(Debug, Clone, Copy)]
-pub enum Operator {
-    Bigger,
-    Smaller,
-    Eq,
-    BiggerOrEq,
-    SmallerOrEq,
-    NotEq,
-}
-
-impl Operator {
-    pub fn compare(&self, a: &Value, b: &Value) -> bool {
-        match self {
-            Operator::Bigger => a > b,
-            Operator::Smaller => a < b,
-            Operator::BiggerOrEq => a >= b,
-            Operator::SmallerOrEq => a <= b,
-            Operator::Eq => a == b,
-            Operator::NotEq => a != b,
-        }
     }
 }

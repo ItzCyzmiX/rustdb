@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use crate::{
-    enums::{DBError, Operator, Value, ValueType},
+    enums::{DBError, Value, ValueType},
     types::{Schema, TableEntry},
     utils::{keys_match, maps_match},
 };
@@ -30,6 +30,7 @@ impl Table {
                 (Value::Float(_), ValueType::Float) => true,
                 (Value::String(_), ValueType::String) => true,
                 (Value::Bool(_), ValueType::Bool) => true,
+                (Value::Vec(_), ValueType::Vec) => true,
                 _ => false,
             } {
                 return Err(DBError::InvalidValueType(*column.1));
@@ -76,12 +77,5 @@ impl Table {
         F: Fn(&TableEntry) -> bool,
     {
         self.rows.iter().filter(|f| filter_method(*f)).collect()
-    }
-
-    pub fn get_with_op(&self, feild: &str, op: Operator, value: Value) -> Vec<&TableEntry> {
-        self.rows
-            .iter()
-            .filter(|f| op.compare(f.get(feild).unwrap(), &value))
-            .collect::<Vec<&TableEntry>>()
     }
 }

@@ -6,6 +6,7 @@ fn main() {
     let schema = schema! {
         name: ValueType::String,
         hp: ValueType::Int,
+        items: ValueType::Vec
     };
 
     match mydb.new_table("players", schema) {
