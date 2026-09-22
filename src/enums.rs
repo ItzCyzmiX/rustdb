@@ -5,6 +5,7 @@ pub enum DBError {
     InvalidValueType(ValueType),
     InvalidRow,
     MissingRow(String),
+    EntryNotFound,
 }
 
 #[derive(Debug)]
@@ -58,5 +59,11 @@ impl From<f64> for Value {
 impl From<bool> for Value {
     fn from(n: bool) -> Self {
         Value::Bool(n)
+    }
+}
+
+impl From<Vec<Value>> for Value {
+    fn from(value: Vec<Value>) -> Self {
+        Value::Vec(value)
     }
 }

@@ -15,3 +15,10 @@ macro_rules! entry {
         map
     }};
 }
+
+#[macro_export]
+macro_rules! vec_val {
+    ($($x:expr),* $(,)?) => {
+        vec![$(Value::from($x)),*]
+    };
+}

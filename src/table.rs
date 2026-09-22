@@ -42,6 +42,47 @@ impl Table {
         Ok(())
     }
 
+    pub fn update_if<F>(&mut self, remove_method: F, json: &TableEntry) -> Vec<TableEntry>
+    where
+        F: Fn(&TableEntry) -> bool,
+    {
+        let mut updated = Vec::new();
+
+        for row in self.rows.iter_mut() {
+            if remove_method(row) {
+                updated.push(row.clone());
+
+                for (key, value) in json {
+                    row.insert(key.clone(), value.clone());
+                }
+            }
+        }
+
+        updated
+    }
+
+    pub fn update_exact(
+        &mut self,
+        old_json: &TableEntry,
+        new_json: &TableEntry,
+    ) -> Vec<TableEntry> {
+        let mut updated = Vec::new();
+
+        for row in self.rows.iter_mut() {
+            if maps_match(row, old_json) {
+                updated.push(row.clone());
+
+                for (key, value) in row.iter_mut() {
+                    if let Some(new_value) = new_json.get(key) {
+                        *value = new_value.clone();
+                    }
+                }
+            }
+        }
+
+        updated
+    }
+
     pub fn remove_exact(&mut self, json: &TableEntry) -> Vec<TableEntry> {
         let mut removed = Vec::new();
         loop {
@@ -77,5 +118,9 @@ impl Table {
         F: Fn(&TableEntry) -> bool,
     {
         self.rows.iter().filter(|f| filter_method(*f)).collect()
+    }
+
+    pub fn clear(&mut self) {
+        self.rows.clear();
     }
 }
