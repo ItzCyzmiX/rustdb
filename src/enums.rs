@@ -29,6 +29,36 @@ pub enum Value {
     Bool(bool),
 }
 
+impl From<&str> for Value {
+    fn from(s: &str) -> Self {
+        Value::String(s.to_string())
+    }
+}
+
+impl From<String> for Value {
+    fn from(s: String) -> Self {
+        Value::String(s)
+    }
+}
+
+impl From<i64> for Value {
+    fn from(n: i64) -> Self {
+        Value::Int(n)
+    }
+}
+
+impl From<f64> for Value {
+    fn from(n: f64) -> Self {
+        Value::Float(n)
+    }
+}
+
+impl From<bool> for Value {
+    fn from(n: bool) -> Self {
+        Value::Bool(n)
+    }
+}
+
 #[derive(Debug, Clone, Copy)]
 pub enum Operator {
     Bigger,

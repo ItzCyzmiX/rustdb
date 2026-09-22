@@ -2,18 +2,19 @@ use std::collections::HashMap;
 
 use crate::{
     enums::{DBError, Operator, Value, ValueType},
+    types::{Schema, TableEntry},
     utils::{keys_match, maps_match},
 };
 
 #[derive(Debug, PartialEq)]
 pub struct Table {
-    pub rows: Vec<HashMap<String, Value>>,
-    pub schema: HashMap<String, ValueType>,
+    pub rows: Vec<TableEntry>,
+    pub schema: Schema,
     pub name: String,
 }
 
 impl Table {
-    pub fn add(&mut self, json: HashMap<String, Value>) -> Result<(), DBError> {
+    pub fn add(&mut self, json: &TableEntry) -> Result<(), DBError> {
         if !keys_match(&self.schema, &json) {
             return Err(DBError::InvalidRow);
         }
@@ -35,15 +36,15 @@ impl Table {
             }
         }
 
-        self.rows.push(HashMap::from_iter(json));
+        self.rows.push(json.clone());
 
         Ok(())
     }
 
-    pub fn remove(&mut self, json: HashMap<String, Value>) -> Vec<HashMap<String, Value>> {
+    pub fn remove_exact(&mut self, json: &TableEntry) -> Vec<TableEntry> {
         let mut removed = Vec::new();
         loop {
-            match self.rows.pop_if(|f| maps_match(f, &json)) {
+            match self.rows.pop_if(|f| maps_match(f, json)) {
                 Some(value) => removed.push(value),
                 None => break,
             };
@@ -51,28 +52,36 @@ impl Table {
         removed
     }
 
-    pub fn get(&mut self, value: Vec<(String, Value)>) -> Option<&mut HashMap<String, Value>> {
-        let target = HashMap::from_iter(value);
+    pub fn remove_if<F>(&mut self, remove_method: F) -> Vec<TableEntry>
+    where
+        F: Fn(&TableEntry) -> bool,
+    {
+        let mut removed = Vec::new();
+        loop {
+            match self.rows.pop_if(|f| remove_method(f)) {
+                Some(row) => removed.push(row),
+                None => break,
+            };
+        }
 
-        self.rows.iter_mut().find(|row| **row == target)
+        removed
     }
 
-    pub fn get_if<F>(&self, filter_method: F) -> Vec<&HashMap<String, Value>>
+    pub fn get_exact(&mut self, value: &TableEntry) -> Option<&mut HashMap<String, Value>> {
+        self.rows.iter_mut().find(|row| **row == *value)
+    }
+
+    pub fn get_if<F>(&self, filter_method: F) -> Vec<&TableEntry>
     where
-        F: Fn(&HashMap<String, Value>) -> bool,
+        F: Fn(&TableEntry) -> bool,
     {
         self.rows.iter().filter(|f| filter_method(*f)).collect()
     }
 
-    pub fn get_with_op(
-        &self,
-        feild: &str,
-        op: Operator,
-        value: Value,
-    ) -> Vec<&HashMap<String, Value>> {
+    pub fn get_with_op(&self, feild: &str, op: Operator, value: Value) -> Vec<&TableEntry> {
         self.rows
             .iter()
             .filter(|f| op.compare(f.get(feild).unwrap(), &value))
-            .collect::<Vec<&HashMap<String, Value>>>()
+            .collect::<Vec<&TableEntry>>()
     }
 }

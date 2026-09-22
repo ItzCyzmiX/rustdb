@@ -1,42 +1,31 @@
-use rustdb::{
-    db::DB,
-    enums::{Operator, Value, ValueType},
-};
-use std::{collections::HashMap, vec};
+use rustdb::{db::DB, entry, enums::ValueType, schema, types::TableEntry};
 
 fn main() {
     let mut mydb = DB::new();
 
-    let schema = vec![
-        ("hp".to_string(), ValueType::Int),
-        ("name".to_string(), ValueType::String),
-    ];
+    let schema = schema! {
+        name: ValueType::String,
+        hp: ValueType::Int,
+    };
 
     match mydb.new_table("players", schema) {
         Ok(_) => println!("{:?}", "created table succesfully"),
-        Err(_) => println!("Oh no"),
+        Err(_) => println!("No Players table found"),
     }
 
-    match mydb.from("players").unwrap().add(HashMap::from([
-        ("hp".to_string(), Value::Int(10)),
-        ("name".to_string(), Value::String("Hello".to_string())),
-    ])) {
-        Ok(_) => println!("Added"),
+    let players_table = mydb.from("players").unwrap();
+
+    let player: TableEntry = entry! {
+        name: "CyzmiX",
+        hp: 10
+    };
+
+    match players_table.add(&player) {
+        Ok(_) => println!("Added new player!"),
         Err(err) => println!("{:?}", err),
     };
 
-    println!(
-        "{:?}",
-        mydb.from("players").unwrap().remove(HashMap::from([
-            ("hp".to_string(), Value::Int(10)),
-            ("name".to_string(), Value::String("Hello".to_string())),
-        ]))
-    );
+    println!("{:?}", players_table.remove_exact(&player));
 
-    println!(
-        "{:?}",
-        mydb.from("players")
-            .unwrap()
-            .get_with_op("hp", Operator::Bigger, Value::Int(5))
-    );
+    println!("{:?}", players_table.get_exact(&player));
 }
