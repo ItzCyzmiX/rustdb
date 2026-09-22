@@ -1,5 +1,13 @@
 use std::{collections::HashMap, vec};
 
+#[derive(Debug)]
+enum ValueType {
+    Int,
+    Float,
+    String,
+    Bool,
+}
+
 #[derive(PartialEq, PartialOrd, Debug)]
 enum Value {
     Int(i64),
@@ -34,6 +42,7 @@ enum Operator {
 #[derive(Debug, PartialEq)]
 struct Table {
     rows: Vec<HashMap<String, Value>>,
+    schema: HashMap<String, ValueType>,
     name: String,
 }
 
@@ -50,9 +59,10 @@ impl DB {
         }
     }
 
-    fn new_table(&mut self, name: &str, rows: Vec<(String, Value)>) -> Result<bool, bool> {
+    fn new_table(&mut self, name: &str, schema: Vec<(String, ValueType)>) -> Result<bool, bool> {
         let t = Table {
-            rows: vec![HashMap::from_iter(rows)],
+            rows: Vec::new(),
+            schema: HashMap::from_iter(schema),
             name: name.to_string(),
         };
         if self.tables.contains_key(name) {
@@ -102,7 +112,7 @@ impl Table {
 fn main() {
     let mut mydb = DB::new();
 
-    match mydb.new_table("players", vec![("hp".to_string(), Value::Int(0))]) {
+    match mydb.new_table("players", vec![("hp".to_string(), ValueType::Int)]) {
         Ok(_) => println!("{:?}", "created table succesfully"),
         Err(_) => println!("Oh no"),
     }
