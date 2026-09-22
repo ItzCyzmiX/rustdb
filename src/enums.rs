@@ -21,6 +21,7 @@ pub enum ValueType {
     String,
     Bool,
     Vec,
+    Null,
 }
 
 #[derive(PartialEq, PartialOrd, Debug, Clone)]
@@ -30,6 +31,7 @@ pub enum Value {
     String(String),
     Bool(bool),
     Vec(Vec<Value>),
+    Null,
 }
 
 impl From<&str> for Value {

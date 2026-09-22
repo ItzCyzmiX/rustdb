@@ -2,8 +2,7 @@ use rustdb::{
     db::DB,
     entry,
     enums::{Value, ValueType},
-    schema,
-    vec_val,
+    schema, vec_val,
 };
 
 fn main() {
@@ -20,19 +19,23 @@ fn main() {
 
     let books = db.from("books").unwrap();
 
-    books.add(&entry! {
-        id: 1,
-        title: "Rust in Practice",
-        published: true,
-        tags: vec_val!["rust", "systems", "learning"]
-    }).unwrap();
+    books
+        .add(&entry! {
+            id: 1,
+            title: "Rust in Practice",
+            published: true,
+            tags: vec_val!["rust", "systems", "learning"]
+        })
+        .unwrap();
 
-    books.add(&entry! {
-        id: 2,
-        title: "Database Design 101",
-        published: false,
-        tags: vec_val!["database", "concepts"]
-    }).unwrap();
+    books
+        .add(&entry! {
+            id: 2,
+            title: "Database Design 101",
+            published: false,
+            tags: vec_val!["database", "concepts"]
+        })
+        .unwrap();
 
     let available = books.get_if(|row| row["published"] == Value::Bool(true));
     println!("Published books: {available:?}");
@@ -45,6 +48,7 @@ fn main() {
         },
     );
 
-    let removed = books.remove_if(|row| row["title"] == Value::String("Rust in Practice".to_string()));
+    let removed =
+        books.remove_if(|row| row["title"] == Value::String("Rust in Practice".to_string()));
     println!("Removed: {removed:?}");
 }
