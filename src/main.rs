@@ -37,6 +37,6 @@ fn main() {
         "{:?}",
         mydb.from("players")
             .unwrap()
-            .get_with_op(Operator::Bigger, "hp", Value::Int(5))
+            .get_with_op("hp", Operator::Bigger, Value::Int(5))
     );
 }

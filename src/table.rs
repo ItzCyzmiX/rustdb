@@ -66,8 +66,8 @@ impl Table {
 
     pub fn get_with_op(
         &self,
-        op: Operator,
         feild: &str,
+        op: Operator,
         value: Value,
     ) -> Vec<&HashMap<String, Value>> {
         self.rows
