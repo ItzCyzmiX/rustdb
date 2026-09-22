@@ -20,13 +20,14 @@ impl DB {
         name: &str,
         schema: Vec<(String, ValueType)>,
     ) -> Result<(), DBError> {
+        if self.tables.contains_key(name) {
+            return Err(DBError::TableAlreadyExists(name.to_string()));
+        };
+        
         let t = Table {
             rows: Vec::new(),
             schema: HashMap::from_iter(schema),
             name: name.to_string(),
-        };
-        if self.tables.contains_key(name) {
-            return Err(DBError::TableAlreadyExists(name.to_string()));
         };
         self.tables.insert(String::from(name), t);
         Ok(())
