@@ -3,48 +3,48 @@ use rustdb::{
     entry,
     enums::{Value, ValueType},
     schema,
-    types::TableEntry,
     vec_val,
 };
 
 fn main() {
-    let mut mydb = DB::new();
+    let mut db = DB::new();
 
-    let schema = schema! {
-        name: ValueType::String,
-        hp: ValueType::Int,
-        items: ValueType::Vec
+    let books_schema = schema! {
+        id: ValueType::Int,
+        title: ValueType::String,
+        published: ValueType::Bool,
+        tags: ValueType::Vec
     };
 
-    match mydb.new_table("players", schema) {
-        Ok(_) => println!("{:?}", "created table succesfully"),
-        Err(_) => println!("No Players table found"),
-    }
+    db.new_table("books", books_schema).unwrap();
 
-    let players_table = mydb.from("players").unwrap();
+    let books = db.from("books").unwrap();
 
-    let player: TableEntry = entry! {
-        name: "CyzmiX",
-        hp: 10,
-        items: vec_val!["sword", "shield"]
-    };
+    books.add(&entry! {
+        id: 1,
+        title: "Rust in Practice",
+        published: true,
+        tags: vec_val!["rust", "systems", "learning"]
+    }).unwrap();
 
-    match players_table.add(&player) {
-        Ok(_) => println!("Added new player!"),
-        Err(err) => println!("{:?}", err),
-    };
+    books.add(&entry! {
+        id: 2,
+        title: "Database Design 101",
+        published: false,
+        tags: vec_val!["database", "concepts"]
+    }).unwrap();
 
-    players_table.update_if(
-        |p| p["name"] == Value::String("CyzmiX".to_string()),
+    let available = books.get_if(|row| row["published"] == Value::Bool(true));
+    println!("Published books: {available:?}");
+
+    books.update_if(
+        |row| row["id"] == Value::Int(2),
         &entry! {
-            name: "ItzCyzmiX",
+            title: "Database Design for Builders",
+            published: true,
         },
     );
 
-    println!("{:?}", players_table.remove_exact(&player));
-
-    println!(
-        "{:?}",
-        players_table.get_if(|f| f["name"] == Value::String("ItzCyzmiX".to_string()))
-    );
+    let removed = books.remove_if(|row| row["title"] == Value::String("Rust in Practice".to_string()));
+    println!("Removed: {removed:?}");
 }

@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use crate::{
     enums::{DBError, Value, ValueType},
     types::{Schema, TableEntry},
@@ -14,31 +12,37 @@ pub struct Table {
 }
 
 impl Table {
-    pub fn add(&mut self, json: &TableEntry) -> Result<(), DBError> {
-        if !keys_match(&self.schema, &json) {
+    fn validate_row(row: &TableEntry, schema: &Schema) -> Result<(), DBError> {
+        if !keys_match(schema, row) {
             return Err(DBError::InvalidRow);
         }
 
-        for column in &self.schema {
-            let key = match json.get(column.0) {
+        for (column_name, expected_type) in schema {
+            let value = match row.get(column_name) {
                 Some(v) => v,
-                None => return Err(DBError::MissingRow(column.0.to_owned())),
+                None => return Err(DBError::MissingRow(column_name.to_owned())),
             };
 
-            if !match (key, column.1) {
+            let valid = match (value, expected_type) {
                 (Value::Int(_), ValueType::Int) => true,
                 (Value::Float(_), ValueType::Float) => true,
                 (Value::String(_), ValueType::String) => true,
                 (Value::Bool(_), ValueType::Bool) => true,
                 (Value::Vec(_), ValueType::Vec) => true,
                 _ => false,
-            } {
-                return Err(DBError::InvalidValueType(*column.1));
+            };
+
+            if !valid {
+                return Err(DBError::InvalidValueType(*expected_type));
             }
         }
 
-        self.rows.push(json.clone());
+        Ok(())
+    }
 
+    pub fn add(&mut self, json: &TableEntry) -> Result<(), DBError> {
+        Self::validate_row(json, &self.schema)?;
+        self.rows.push(json.clone());
         Ok(())
     }
 
@@ -46,7 +50,11 @@ impl Table {
     where
         F: Fn(&TableEntry) -> bool,
     {
-        let mut updated = Vec::new();
+        if Self::validate_row(json, &self.schema).is_err() {
+            return Vec::new();
+        }
+
+        let mut updated: Vec<TableEntry> = Vec::new();
 
         for row in self.rows.iter_mut() {
             if remove_method(row) {
@@ -66,15 +74,26 @@ impl Table {
         old_json: &TableEntry,
         new_json: &TableEntry,
     ) -> Vec<TableEntry> {
-        let mut updated = Vec::new();
+        if Self::validate_row(new_json, &self.schema).is_err() {
+            return Vec::new();
+        }
+
+        let mut updated: Vec<TableEntry> = Vec::new();
 
         for row in self.rows.iter_mut() {
             if maps_match(row, old_json) {
-                updated.push(row.clone());
+                let original = row.clone();
+                updated.push(original.clone());
 
                 for (key, value) in row.iter_mut() {
                     if let Some(new_value) = new_json.get(key) {
                         *value = new_value.clone();
+                    }
+                }
+
+                for (key, value) in new_json {
+                    if !row.contains_key(key) {
+                        row.insert(key.clone(), value.clone());
                     }
                 }
             }
@@ -85,12 +104,14 @@ impl Table {
 
     pub fn remove_exact(&mut self, json: &TableEntry) -> Vec<TableEntry> {
         let mut removed = Vec::new();
-        loop {
-            match self.rows.pop_if(|f| maps_match(f, json)) {
-                Some(value) => removed.push(value),
-                None => break,
-            };
-        }
+        self.rows.retain(|row| {
+            if maps_match(row, json) {
+                removed.push(row.clone());
+                false
+            } else {
+                true
+            }
+        });
         removed
     }
 
@@ -99,17 +120,18 @@ impl Table {
         F: Fn(&TableEntry) -> bool,
     {
         let mut removed = Vec::new();
-        loop {
-            match self.rows.pop_if(|f| remove_method(f)) {
-                Some(row) => removed.push(row),
-                None => break,
-            };
-        }
-
+        self.rows.retain(|row| {
+            if remove_method(row) {
+                removed.push(row.clone());
+                false
+            } else {
+                true
+            }
+        });
         removed
     }
 
-    pub fn get_exact(&mut self, value: &TableEntry) -> Option<&mut HashMap<String, Value>> {
+    pub fn get_exact(&mut self, value: &TableEntry) -> Option<&mut TableEntry> {
         self.rows.iter_mut().find(|row| **row == *value)
     }
 
@@ -122,5 +144,9 @@ impl Table {
 
     pub fn clear(&mut self) {
         self.rows.clear();
+    }
+
+    pub fn all(&self) -> Vec<TableEntry> {
+        self.rows.clone()
     }
 }
