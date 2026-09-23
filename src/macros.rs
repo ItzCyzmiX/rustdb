@@ -1,7 +1,7 @@
 #[macro_export]
 macro_rules! schema {
-    ($($name:ident : $ty:expr),* $(,)?) => {
-        vec![$((stringify!($name).to_string(), $ty)),*]
+    ($($name:ident : $ty:ident),* $(,)?) => {
+        vec![$((stringify!($name).to_string(), ValueType::$ty)),*]
     };
 }
 

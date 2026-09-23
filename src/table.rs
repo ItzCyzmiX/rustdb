@@ -24,6 +24,17 @@ impl Table {
         };
     }
 
+    fn validate_type(value: &Value, expected_type: &ValueType) -> bool {
+        match (value, expected_type) {
+            (Value::Int(_), ValueType::Int) => true,
+            (Value::Float(_), ValueType::Float) => true,
+            (Value::String(_), ValueType::String) => true,
+            (Value::Bool(_), ValueType::Bool) => true,
+            (Value::Vec(_), ValueType::Vec) => true,
+            _ => false,
+        }
+    }
+
     fn validate_row(row: &TableEntry, schema: &Schema) -> Result<(), DBError> {
         if !keys_match::<String, ValueType, Value>(schema, row) {
             return Err(DBError::InvalidRow);
@@ -35,18 +46,9 @@ impl Table {
                 None => return Err(DBError::MissingRow(column_name.to_owned())),
             };
 
-            let valid = match (value, expected_type) {
-                (Value::Int(_), ValueType::Int) => true,
-                (Value::Float(_), ValueType::Float) => true,
-                (Value::String(_), ValueType::String) => true,
-                (Value::Bool(_), ValueType::Bool) => true,
-                (Value::Vec(_), ValueType::Vec) => true,
-                _ => false,
-            };
-
-            if !valid {
+            if !Self::validate_type(value, expected_type) {
                 return Err(DBError::InvalidValueType(*expected_type));
-            }
+            };
         }
 
         Ok(())
@@ -65,12 +67,27 @@ impl Table {
         Ok(self.current_idx.clone())
     }
 
-    pub fn update_if<F>(&mut self, remove_method: F, json: &TableEntry) -> Vec<TableEntry>
+    pub fn update_if<F>(
+        &mut self,
+        remove_method: F,
+        json: &TableEntry,
+    ) -> Result<Vec<TableEntry>, DBError>
     where
         F: Fn(&TableEntry) -> bool,
     {
-        if Self::validate_row(json, &self.schema).is_err() {
-            return Vec::new();
+        for (key, value) in json {
+            if key == "ID" {
+                continue;
+            }
+
+            let expected_type = match self.schema.get(key) {
+                Some(type_) => type_,
+                None => return Err(DBError::InvalidRow),
+            };
+
+            if !Self::validate_type(value, expected_type) {
+                return Err(DBError::InvalidValueType(*expected_type));
+            }
         }
 
         let mut updated: Vec<TableEntry> = Vec::new();
@@ -80,21 +97,35 @@ impl Table {
                 updated.push(row.clone());
 
                 for (key, value) in json {
+                    if key == "ID" {
+                        continue;
+                    }
                     row.insert(key.clone(), value.clone());
                 }
             }
         }
 
-        updated
+        Ok(updated)
     }
 
     pub fn update_exact(
         &mut self,
         old_json: &TableEntry,
         new_json: &TableEntry,
-    ) -> Vec<TableEntry> {
-        if Self::validate_row(new_json, &self.schema).is_err() {
-            return Vec::new();
+    ) -> Result<Vec<TableEntry>, DBError> {
+        for (key, value) in new_json {
+            if key == "ID" {
+                continue;
+            }
+
+            let expected_type = match self.schema.get(key) {
+                Some(type_) => type_,
+                None => return Err(DBError::InvalidRow),
+            };
+
+            if !Self::validate_type(value, expected_type) {
+                return Err(DBError::InvalidValueType(*expected_type));
+            }
         }
 
         let mut updated: Vec<TableEntry> = Vec::new();
@@ -104,21 +135,16 @@ impl Table {
                 let original = row.clone();
                 updated.push(original.clone());
 
-                for (key, value) in row.iter_mut() {
-                    if let Some(new_value) = new_json.get(key) {
-                        *value = new_value.clone();
-                    }
-                }
-
                 for (key, value) in new_json {
-                    if !row.contains_key(key) {
-                        row.insert(key.clone(), value.clone());
+                    if key == "ID" {
+                        continue;
                     }
+                    row.insert(key.clone(), value.clone());
                 }
             }
         }
 
-        updated
+        Ok(updated)
     }
 
     pub fn remove_exact(&mut self, json: &TableEntry) -> Vec<TableEntry> {
@@ -176,14 +202,34 @@ impl Table {
         self.rows.remove(&id)
     }
 
-    pub fn update_id(&mut self, id: i64, json: &TableEntry) -> Option<TableEntry> {
-        let new = self.rows.get_mut(&id)?;
+    pub fn update_id(&mut self, id: i64, json: &TableEntry) -> Result<Option<TableEntry>, DBError> {
+        let new = match self.rows.get_mut(&id) {
+            Some(val) => val,
+            None => return Ok(None),
+        };
         let old = new.clone();
 
         for (key, value) in json {
+            if key == &String::from("ID") {
+                continue;
+            }
+
+            if !old.contains_key(key) {
+                return Err(DBError::InvalidRow);
+            };
+
+            let expected_type = match self.schema.get(key) {
+                Some(expected_type) => expected_type,
+                None => return Err(DBError::InvalidRow),
+            };
+
+            if !Self::validate_type(value, expected_type) {
+                return Err(DBError::InvalidValueType(expected_type.clone()));
+            };
+
             new.insert(key.clone(), value.clone());
         }
-        return Some(old);
+        return Ok(Some(old));
     }
 
     pub fn clear(&mut self) {
