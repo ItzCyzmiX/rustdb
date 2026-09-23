@@ -90,7 +90,3 @@ fn main() {
     println!("Removed book: {removed:?}");
 }
 ```
-
-## Notes
-
-This API is intentionally small and evolving. The current implementation is best treated as an educational database prototype rather than a production-ready storage engine.
