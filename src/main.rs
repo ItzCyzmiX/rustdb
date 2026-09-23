@@ -28,27 +28,30 @@ fn main() {
         })
         .unwrap();
 
-    books
+    let id = books
         .add(&entry! {
             id: 2,
             title: "Database Design 101",
-            published: false,
+            published: true,
             tags: vec_val!["database", "concepts"]
         })
         .unwrap();
 
-    let available = books.get_if(|row| row["published"] == Value::Bool(true));
-    println!("Published books: {available:?}");
+    println!("{:?}", books.remove_id(id));
+    println!("{:?}", books.get_id(id))
 
-    books.update_if(
-        |row| row["id"] == Value::Int(2),
-        &entry! {
-            title: "Database Design for Builders",
-            published: true,
-        },
-    );
+    // let available = books.get_if(|row| row["published"] == Value::Bool(true));
+    // println!("Published books: {available:?}");
 
-    let removed =
-        books.remove_if(|row| row["title"] == Value::String("Rust in Practice".to_string()));
-    println!("Removed: {removed:?}");
+    // books.update_if(
+    //     |row| row["id"] == Value::Int(2),
+    //     &entry! {
+    //         title: "Database Design for Builders",
+    //         published: true,
+    //     },
+    // );
+
+    // let removed =
+    //     books.remove_if(|row| row["title"] == Value::String("Rust in Practice".to_string()));
+    // println!("Removed: {removed:?}");
 }

@@ -1,7 +1,6 @@
-use std::collections::HashMap;
-
 use crate::enums::{DBError, ValueType};
 use crate::table::Table;
+use std::collections::HashMap;
 
 #[derive(Debug)]
 pub struct DB {
@@ -23,13 +22,10 @@ impl DB {
         if self.tables.contains_key(name) {
             return Err(DBError::TableAlreadyExists(name.to_string()));
         };
-        
-        let t = Table {
-            rows: Vec::new(),
-            schema: HashMap::from_iter(schema),
-            name: name.to_string(),
-        };
+
+        let t = Table::new(name, &HashMap::from_iter(schema));
         self.tables.insert(String::from(name), t);
+
         Ok(())
     }
 
