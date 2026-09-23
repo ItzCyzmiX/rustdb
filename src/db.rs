@@ -1,4 +1,4 @@
-use crate::enums::{DBError, ValueType};
+use crate::enums::{Constraints, DBError, ValueType};
 use crate::table::Table;
 use std::collections::HashMap;
 
@@ -17,13 +17,20 @@ impl DB {
     pub fn new_table(
         &mut self,
         name: &str,
-        schema: Vec<(String, ValueType)>,
+        schema: Vec<(String, ValueType, Vec<Constraints>)>,
     ) -> Result<(), DBError> {
         if self.tables.contains_key(name) {
             return Err(DBError::TableAlreadyExists(name.to_string()));
         };
 
-        let t = Table::new(name, &HashMap::from_iter(schema));
+        let t = Table::new(
+            name,
+            &HashMap::from_iter(
+                schema
+                    .into_iter()
+                    .map(|(name, value_type, constraints)| (name, (value_type, constraints))),
+            ),
+        );
         self.tables.insert(String::from(name), t);
 
         Ok(())

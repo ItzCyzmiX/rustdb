@@ -1,14 +1,15 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use crate::{
-    enums::{DBError, Value, ValueType},
+    enums::{Constraints, DBError, Value, ValueType},
     types::{Schema, TableEntry},
     utils::{keys_match, maps_match},
 };
 
 #[derive(Debug, PartialEq)]
 pub struct Table {
-    current_idx: i64,
+    current_id: i64,
+    uniques: HashMap<String, HashSet<Value>>,
     pub rows: HashMap<i64, TableEntry>,
     pub schema: Schema,
     pub name: String,
@@ -16,8 +17,15 @@ pub struct Table {
 
 impl Table {
     pub fn new(name: &str, schema: &Schema) -> Self {
+        let uniques = schema
+            .iter()
+            .filter(|(_, (_, constraints))| constraints.contains(&Constraints::Unique))
+            .map(|(key, _)| (key.clone(), HashSet::new()))
+            .collect();
+
         return Table {
-            current_idx: 0,
+            uniques,
+            current_id: 0,
             rows: HashMap::new(),
             schema: schema.clone(),
             name: name.to_string(),
@@ -27,7 +35,7 @@ impl Table {
     fn validate_type(value: &Value, expected_type: &ValueType) -> bool {
         match (value, expected_type) {
             (Value::Int(_), ValueType::Int) => true,
-            (Value::Float(_), ValueType::Float) => true,
+            // (Value::Float(_), ValueType::Float) => true,
             (Value::String(_), ValueType::String) => true,
             (Value::Bool(_), ValueType::Bool) => true,
             (Value::Vec(_), ValueType::Vec) => true,
@@ -35,12 +43,71 @@ impl Table {
         }
     }
 
+    fn validate_constraints(&self, json: &TableEntry) -> Result<(), DBError> {
+        for (key, (_, constraints)) in &self.schema {
+            let value = json.get(key).ok_or(DBError::InvalidRow)?;
+
+            for constraint in constraints {
+                if !constraint.check(value, self.uniques.get(key)) {
+                    return Err(match constraint {
+                        Constraints::Unique => DBError::ConstraintNotMet,
+                        _ => DBError::InvalidRow,
+                    });
+                }
+            }
+        }
+
+        Ok(())
+    }
+
+    fn rebuild_uniques(&mut self) {
+        for values in self.uniques.values_mut() {
+            values.clear();
+        }
+
+        for row in self.rows.values() {
+            for (key, values) in &mut self.uniques {
+                if let Some(value) = row.get(key) {
+                    values.insert(value.clone());
+                }
+            }
+        }
+    }
+
+    fn validate_unique_updates<F>(&self, matches: F, json: &TableEntry) -> bool
+    where
+        F: Fn(&TableEntry) -> bool,
+    {
+        let mut values = self.uniques.clone();
+
+        for row in self.rows.values().filter(|row| matches(row)) {
+            for (key, unique_values) in &mut values {
+                if let Some(value) = row.get(key) {
+                    unique_values.remove(value);
+                }
+            }
+        }
+
+        for row in self.rows.values().filter(|row| matches(row)) {
+            for (key, unique_values) in &mut values {
+                let value = json.get(key).or_else(|| row.get(key));
+                if let Some(value) = value {
+                    if !unique_values.insert(value.clone()) {
+                        return false;
+                    }
+                }
+            }
+        }
+
+        true
+    }
+
     fn validate_row(row: &TableEntry, schema: &Schema) -> Result<(), DBError> {
-        if !keys_match::<String, ValueType, Value>(schema, row) {
+        if !keys_match(schema, row) {
             return Err(DBError::InvalidRow);
         }
 
-        for (column_name, expected_type) in schema {
+        for (column_name, (expected_type, _)) in schema {
             let value = match row.get(column_name) {
                 Some(v) => v,
                 None => return Err(DBError::MissingRow(column_name.to_owned())),
@@ -57,14 +124,17 @@ impl Table {
     pub fn add(&mut self, json: &TableEntry) -> Result<i64, DBError> {
         Self::validate_row(json, &self.schema)?;
 
-        self.current_idx += 1;
+        self.validate_constraints(json)?;
+
+        self.current_id += 1;
 
         let mut keyed_json = json.clone();
 
-        keyed_json.insert("ID".to_string(), Value::Int(self.current_idx));
+        keyed_json.insert("ID".to_string(), Value::Int(self.current_id));
 
-        self.rows.insert(self.current_idx, keyed_json);
-        Ok(self.current_idx.clone())
+        self.rows.insert(self.current_id, keyed_json);
+        self.rebuild_uniques();
+        Ok(self.current_id)
     }
 
     pub fn update_if<F>(
@@ -80,14 +150,26 @@ impl Table {
                 continue;
             }
 
-            let expected_type = match self.schema.get(key) {
-                Some(type_) => type_,
+            let (expected_type, constraints) = match self.schema.get(key) {
+                Some(schema_entry) => schema_entry,
                 None => return Err(DBError::InvalidRow),
             };
 
             if !Self::validate_type(value, expected_type) {
                 return Err(DBError::InvalidValueType(*expected_type));
             }
+
+            if !constraints
+                .iter()
+                .filter(|constraint| !matches!(constraint, Constraints::Unique))
+                .all(|constraint| constraint.check(value, self.uniques.get(key)))
+            {
+                return Err(DBError::InvalidRow);
+            }
+        }
+
+        if !self.validate_unique_updates(|row| remove_method(row), json) {
+            return Err(DBError::ConstraintNotMet);
         }
 
         let mut updated: Vec<TableEntry> = Vec::new();
@@ -105,6 +187,8 @@ impl Table {
             }
         }
 
+        self.rebuild_uniques();
+
         Ok(updated)
     }
 
@@ -118,14 +202,26 @@ impl Table {
                 continue;
             }
 
-            let expected_type = match self.schema.get(key) {
-                Some(type_) => type_,
+            let (expected_type, constraints) = match self.schema.get(key) {
+                Some(schema_entry) => schema_entry,
                 None => return Err(DBError::InvalidRow),
             };
 
             if !Self::validate_type(value, expected_type) {
                 return Err(DBError::InvalidValueType(*expected_type));
             }
+
+            if !constraints
+                .iter()
+                .filter(|constraint| !matches!(constraint, Constraints::Unique))
+                .all(|constraint| constraint.check(value, self.uniques.get(key)))
+            {
+                return Err(DBError::InvalidRow);
+            }
+        }
+
+        if !self.validate_unique_updates(|row| maps_match(row, old_json), new_json) {
+            return Err(DBError::ConstraintNotMet);
         }
 
         let mut updated: Vec<TableEntry> = Vec::new();
@@ -144,6 +240,8 @@ impl Table {
             }
         }
 
+        self.rebuild_uniques();
+
         Ok(updated)
     }
 
@@ -157,6 +255,7 @@ impl Table {
                 true
             }
         });
+        self.rebuild_uniques();
         removed
     }
 
@@ -173,6 +272,7 @@ impl Table {
                 true
             }
         });
+        self.rebuild_uniques();
         removed
     }
 
@@ -199,15 +299,22 @@ impl Table {
     }
 
     pub fn remove_id(&mut self, id: i64) -> Option<TableEntry> {
-        self.rows.remove(&id)
+        let removed = self.rows.remove(&id);
+        if removed.is_some() {
+            self.rebuild_uniques();
+        }
+        removed
     }
 
     pub fn update_id(&mut self, id: i64, json: &TableEntry) -> Result<Option<TableEntry>, DBError> {
-        let new = match self.rows.get_mut(&id) {
-            Some(val) => val,
+        let old = match self.rows.get(&id) {
+            Some(val) => val.clone(),
             None => return Ok(None),
         };
-        let old = new.clone();
+
+        if !self.validate_unique_updates(|row| row.get("ID") == Some(&Value::Int(id)), json) {
+            return Err(DBError::ConstraintNotMet);
+        }
 
         for (key, value) in json {
             if key == &String::from("ID") {
@@ -218,22 +325,37 @@ impl Table {
                 return Err(DBError::InvalidRow);
             };
 
-            let expected_type = match self.schema.get(key) {
-                Some(expected_type) => expected_type,
+            let (expected_type, constraints) = match self.schema.get(key) {
+                Some(schema_entry) => schema_entry,
                 None => return Err(DBError::InvalidRow),
             };
 
             if !Self::validate_type(value, expected_type) {
-                return Err(DBError::InvalidValueType(expected_type.clone()));
+                return Err(DBError::InvalidValueType(*expected_type));
             };
 
-            new.insert(key.clone(), value.clone());
+            if !constraints
+                .iter()
+                .filter(|constraint| !matches!(constraint, Constraints::Unique))
+                .all(|constraint| constraint.check(value, self.uniques.get(key)))
+            {
+                return Err(DBError::InvalidRow);
+            };
         }
+
+        let new = self.rows.get_mut(&id).unwrap();
+        for (key, value) in json {
+            if key != "ID" {
+                new.insert(key.clone(), value.clone());
+            }
+        }
+        self.rebuild_uniques();
         return Ok(Some(old));
     }
 
     pub fn clear(&mut self) {
         self.rows.clear();
+        self.rebuild_uniques();
     }
 
     pub fn all(&self) -> Vec<TableEntry> {

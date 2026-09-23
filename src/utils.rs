@@ -8,10 +8,7 @@ where
     map1.len() == map2.len() && map1.iter().all(|(key, value)| map2.get(key) == Some(value))
 }
 
-pub fn keys_match<T: Eq + Hash, U, V>(
-    map1: &HashMap<String, U>,
-    map2: &HashMap<String, V>,
-) -> bool {
+pub fn keys_match<U, V>(map1: &HashMap<String, U>, map2: &HashMap<String, V>) -> bool {
     map1.len() == map2.len()
         && map1
             .keys()
