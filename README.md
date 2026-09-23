@@ -4,7 +4,7 @@ A small work-in-progress database project written in Rust.
 
 ## Status
 
-This project is still under active development. It is intended as a lightweight learning and experimentation database focused on table storage, row handling, and simple typed values.
+This project is still under active development. It is intended as a lightweight learning and experimentation database focused on table storage, row handling, complex schema validation and typed values.
 
 ## Features
 
