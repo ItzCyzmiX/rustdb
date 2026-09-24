@@ -10,8 +10,8 @@ This project is still under active development. It is intended as a lightweight 
 
 - Rust-based database implementation
 - Table and record handling
-- Basic schema validation for rows
-- Simple value types (`Int`, `Float`, `String`, `Bool`, `Vec`)
+- Complex schema validation for rows with constraints
+- Simple value types (`Int`, `Float`, `String`, `Bool`, `Vec`, `Null`)
 - Helper macros for building schemas and rows
 
 ## Example Usage
