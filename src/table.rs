@@ -39,6 +39,10 @@ impl Table {
             (Value::String(_), ValueType::String) => true,
             (Value::Bool(_), ValueType::Bool) => true,
             (Value::Vec(_), ValueType::Vec) => true,
+            (Value::Int(_) | Value::Null, ValueType::OptionalInt) => true,
+            (Value::Bool(_) | Value::Null, ValueType::OptionalBool) => true,
+            (Value::Vec(_) | Value::Null, ValueType::OptionalVec) => true,
+            (Value::String(_) | Value::Null, ValueType::OptionalString) => true,
             _ => false,
         }
     }

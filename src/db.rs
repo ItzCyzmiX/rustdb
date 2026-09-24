@@ -42,4 +42,11 @@ impl DB {
             None => Err(DBError::TableNotFound(name.to_string())),
         }
     }
+
+    pub fn delete(&mut self, name: &str) -> Result<bool, DBError> {
+        return match self.tables.remove(name) {
+            Some(_) => Ok(true),
+            None => Err(DBError::TableNotFound(name.to_string())),
+        };
+    }
 }

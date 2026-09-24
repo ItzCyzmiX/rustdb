@@ -1,7 +1,7 @@
 use rustdb::{
     db::DB,
     entry,
-    enums::{DBError, Value},
+    enums::{DBError, Null::Null, Value},
     schema, vec_val,
 };
 
@@ -11,10 +11,11 @@ fn main() {
     db.new_table(
         "books",
         schema! {
-        id: Int => [between(10, 50)],
-        title: String => [unique],
-        published: Bool,
-        tags: Vec
+            id: Int => [between(10, 50)],
+            title: String => [unique],
+            published: Bool,
+            tags: OptionalVec,
+
         },
     )
     .unwrap();
@@ -26,7 +27,7 @@ fn main() {
             id: 40,
             title: "Rust in Practice",
             published: true,
-            tags: vec_val!["rust", "systems", "learning"]
+            tags: Null,
         })
         .unwrap();
 
@@ -35,7 +36,7 @@ fn main() {
             id: 30,
             title: "Database Design 101",
             published: true,
-            tags: vec_val!["database", "design"]
+            tags: vec_val!["database"]
         })
         .unwrap();
 

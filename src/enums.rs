@@ -1,5 +1,9 @@
 use std::collections::HashSet;
 
+pub enum Null {
+    Null,
+}
+
 #[derive(Debug)]
 pub enum DBError {
     TableAlreadyExists(String),
@@ -25,6 +29,10 @@ pub enum ValueType {
     Bool,
     Vec,
     Null,
+    OptionalInt,
+    OptionalString,
+    OptionalBool,
+    OptionalVec,
 }
 
 #[derive(Debug, PartialEq, PartialOrd, Clone)]
@@ -77,6 +85,10 @@ pub enum Value {
     Bool(bool),
     Vec(Vec<Value>),
     Null,
+    // OptionalInt(Option<i64>),
+    // OptionalString(Option<String>),
+    // OptionalBool(Option<String>),
+    // OptionalVec(Option<Vec<Value>>),
 }
 
 impl Into<String> for Value {
@@ -121,5 +133,13 @@ impl From<bool> for Value {
 impl From<Vec<Value>> for Value {
     fn from(value: Vec<Value>) -> Self {
         Value::Vec(value)
+    }
+}
+
+impl From<Null> for Value {
+    fn from(value: Null) -> Self {
+        match value {
+            Null::Null => Value::Null,
+        }
     }
 }
